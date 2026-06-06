@@ -6,6 +6,15 @@ Save your favorite links, organize them, and toggle their visibility to share se
 
 ---
 
+# Where the AI agent got things wrong:
+
+The agent repeatedly attempted to configure Supabase's built-in email provider and SMTP setup despite the initial prompt explicitly specifying Resend API. I corrected it by reinforcing that only the Resend API should be used for transactional emails, with no SMTP involvement.
+The initial dashboard UI was cramped with no spacing or visual structure. I guided the agent with explicit layout and padding requirements until it produced a clean, usable interface.
+The agent was unaware of the difference between Gemini CLI and Antigravity CLI, causing it to run incorrect commands using the gemini binary instead of the agy alias. I explained the correct setup and commands for Antigravity on Arch Linux.
+The agent did not implement Supabase Row Level Security policies on the initial pass, leaving all endpoints open. I identified this, instructed it to enable RLS on both tables, and verified the policies were correctly applied.
+
+---
+
 ## 🌟 Key Features
 
 1. **Custom Handles (`@handle`)**
