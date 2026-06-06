@@ -26,6 +26,7 @@ export default function BookmarksManager({
 }: BookmarksManagerProps) {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>(initialBookmarks);
   const [copied, setCopied] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // Form states
   const [newTitle, setNewTitle] = useState("");
@@ -41,12 +42,25 @@ export default function BookmarksManager({
   const [editIsPublic, setEditIsPublic] = useState(false);
   const [editError, setEditError] = useState("");
 
+  // Derived stats
+  const publicCount = bookmarks.filter((b) => b.is_public).length;
+  const privateCount = bookmarks.length - publicCount;
+
   // Copy Public Link
   const copyPublicLink = () => {
     const origin = window.location.origin;
     navigator.clipboard.writeText(`${origin}/${handle}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Extract domain from URL for display
+  const getDomain = (url: string) => {
+    try {
+      return new URL(url).hostname.replace("www.", "");
+    } catch {
+      return url;
+    }
   };
 
   // Add Bookmark Handler
@@ -67,13 +81,14 @@ export default function BookmarksManager({
       formData.append("url", newUrl);
       formData.append("is_public", newIsPublic ? "true" : "false");
 
-      await addBookmark(formData);
-
-      // Refresh list locally (optimistic or simple state sync)
-      // Since revalidatePath resets the page, we could reload or just update state.
-      // A full page reload/refresh is simple, but we can also just construct a temp item
-      // to keep user experience instantaneous, or window.location.reload()
-      window.location.reload();
+      const newBookmark = await addBookmark(formData);
+      if (newBookmark) {
+        setBookmarks([newBookmark, ...bookmarks]);
+      }
+      setNewTitle("");
+      setNewUrl("");
+      setNewIsPublic(false);
+      setShowAddForm(false);
     } catch (err: any) {
       setFormError(err.message || "Failed to add bookmark.");
     } finally {
@@ -134,248 +149,507 @@ export default function BookmarksManager({
     }
   };
 
+  // Format date
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return (
-    <div className="w-full max-w-5xl px-4 py-8 mx-auto text-white">
-      {/* Header Profile Section */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-8 border-b border-white/10 mb-8">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-400 bg-clip-text text-transparent">
-            Welcome back, {displayName || email}
-          </h1>
-          <p className="mt-1 text-slate-400">
-            Handle: <span className="text-violet-400 font-semibold">@{handle}</span>
-          </p>
+    <div className="w-full max-w-7xl px-6 lg:px-8 py-10 mx-auto text-white">
+      {/* Hero Header */}
+      <div className="mb-12">
+        <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-6">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-violet-400 tracking-wide uppercase">
+              Dashboard
+            </p>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white">
+              Welcome back,{" "}
+              <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-400 bg-clip-text text-transparent">
+                {displayName || email.split("@")[0]}
+              </span>
+            </h1>
+            <p className="text-base text-slate-400 max-w-lg">
+              Manage your bookmarks and share your curated collection with the
+              world.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={copyPublicLink}
+              className="flex items-center gap-2 cursor-pointer rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm px-5 py-3 text-sm font-semibold text-slate-300 transition-all hover:bg-white/10 hover:border-white/20 active:scale-[0.98]"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              {copied ? "Copied!" : "Share Profile"}
+            </button>
+
+            <a
+              href={`/${handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 shadow-lg shadow-violet-600/20 active:scale-[0.98]"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+              View Public Page
+            </a>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={copyPublicLink}
-            className="flex items-center gap-2 cursor-pointer rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2.5 text-sm font-semibold text-violet-300 transition-all hover:bg-violet-500/20 active:scale-[0.98]"
-          >
-            <span>{copied ? "Copied! 📋" : "Copy Public Profile Link 🔗"}</span>
-          </button>
-          <a
-            href={`/${handle}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 shadow-lg shadow-violet-500/25"
-          >
-            View Public Page
-          </a>
+
+        {/* Profile handle pill */}
+        <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-sm text-slate-400">
+            Your handle:{" "}
+            <span className="font-semibold text-white">@{handle}</span>
+          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left column: Add Bookmark Form */}
-        <div className="lg:col-span-1">
-          <div className="rounded-2xl border border-white/10 bg-[#0e0e15] p-6 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-violet-600/5 blur-[50px] pointer-events-none" />
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span>🔖</span> Add New Bookmark
-            </h2>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:bg-white/[0.04] hover:border-white/10">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+            Total Bookmarks
+          </p>
+          <p className="text-3xl font-bold text-white">{bookmarks.length}</p>
+        </div>
+        <div className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:bg-white/[0.04] hover:border-white/10">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+            Public
+          </p>
+          <p className="text-3xl font-bold text-emerald-400">{publicCount}</p>
+        </div>
+        <div className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:bg-white/[0.04] hover:border-white/10">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+            Private
+          </p>
+          <p className="text-3xl font-bold text-slate-400">{privateCount}</p>
+        </div>
+      </div>
 
-            <form onSubmit={handleAdd} className="space-y-4">
+      {/* Bookmarks Section */}
+      <div className="space-y-6">
+        {/* Section Header with Add button */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Your Bookmarks</h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {bookmarks.length === 0
+                ? "Get started by adding your first bookmark"
+                : `${bookmarks.length} bookmark${bookmarks.length !== 1 ? "s" : ""} saved`}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="inline-flex items-center gap-2 cursor-pointer rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition-all hover:brightness-110 active:scale-[0.98]"
+          >
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${showAddForm ? "rotate-45" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            {showAddForm ? "Close" : "Add Bookmark"}
+          </button>
+        </div>
+
+        {/* Collapsible Add Form */}
+        {showAddForm && (
+          <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.03] p-8 backdrop-blur-sm animate-in">
+            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                <svg
+                  className="w-4 h-4 text-violet-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+              </div>
+              New Bookmark
+            </h3>
+
+            <form onSubmit={handleAdd} className="space-y-5">
               {formError && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-sm text-red-300 flex items-center gap-2">
+                  <svg
+                    className="w-4 h-4 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
                   {formError}
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                  Bookmark Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Supabase Documentation"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none transition focus:border-violet-500/50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                  URL
-                </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://supabase.com/docs"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  className="block w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-slate-500 outline-none transition focus:border-violet-500/50"
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <span className="block text-sm font-medium">Public Access</span>
-                  <span className="block text-xs text-slate-400">
-                    Visible on your public profile page
-                  </span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Title
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={newIsPublic}
-                    onChange={(e) => setNewIsPublic(e.target.checked)}
-                    className="sr-only peer"
+                    type="text"
+                    required
+                    placeholder="e.g. Supabase Documentation"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="block w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-slate-600 outline-none transition-all focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
                   />
-                  <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
-                </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    URL
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://supabase.com/docs"
+                    value={newUrl}
+                    onChange={(e) => setNewUrl(e.target.value)}
+                    className="block w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-slate-600 outline-none transition-all focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-1 focus:ring-violet-500/20"
+                  />
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full cursor-pointer rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-              >
-                {submitting ? "Adding..." : "Save Bookmark"}
-              </button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                <div className="flex items-center gap-4">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newIsPublic}
+                      onChange={(e) => setNewIsPublic(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" />
+                  </label>
+                  <div>
+                    <span className="block text-sm font-medium text-white">
+                      Public
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      Visible on your public profile
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="cursor-pointer rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="animate-spin h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save Bookmark"
+                  )}
+                </button>
+              </div>
             </form>
           </div>
-        </div>
+        )}
 
-        {/* Right column: Bookmarks List */}
-        <div className="lg:col-span-2 space-y-4">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <span>📚</span> Your Saved Bookmarks ({bookmarks.length})
-          </h2>
-
-          {bookmarks.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-12 text-center">
-              <span className="text-4xl block mb-2">📥</span>
-              <p className="text-slate-400 font-medium">No bookmarks saved yet.</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Use the form on the left to save your first bookmark.
-              </p>
+        {/* Bookmark Cards */}
+        {bookmarks.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.01] p-16 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-8 h-8 text-violet-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                />
+              </svg>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {bookmarks.map((b) => (
-                <div
-                  key={b.id}
-                  className={`rounded-xl border p-5 transition-all duration-200 bg-[#0e0e15] ${
-                    editingId === b.id
-                      ? "border-violet-500 ring-2 ring-violet-500/20"
-                      : "border-white/10 hover:border-white/20 hover:shadow-lg hover:shadow-violet-950/10"
-                  }`}
-                >
-                  {editingId === b.id ? (
-                    /* EDIT MODE */
-                    <form onSubmit={handleSaveEdit} className="space-y-4">
-                      {editError && (
-                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                          {editError}
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1">
-                            Title
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={editTitle}
-                            onChange={(e) => setEditTitle(e.target.value)}
-                            className="block w-full rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-sm text-white outline-none focus:border-violet-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-400 mb-1">
-                            URL
-                          </label>
-                          <input
-                            type="url"
-                            required
-                            value={editUrl}
-                            onChange={(e) => setEditUrl(e.target.value)}
-                            className="block w-full rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-sm text-white outline-none focus:border-violet-500"
-                          />
-                        </div>
+            <h3 className="text-lg font-semibold text-white mb-1">
+              No bookmarks yet
+            </h3>
+            <p className="text-sm text-slate-500 max-w-sm mx-auto">
+              Click the &ldquo;Add Bookmark&rdquo; button above to save your
+              first link and start building your collection.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {bookmarks.map((b) => (
+              <div
+                key={b.id}
+                className={`group rounded-2xl border p-6 transition-all duration-200 ${
+                  editingId === b.id
+                    ? "border-violet-500/40 bg-violet-500/[0.04] ring-1 ring-violet-500/20"
+                    : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10"
+                }`}
+              >
+                {editingId === b.id ? (
+                  /* EDIT MODE */
+                  <form onSubmit={handleSaveEdit} className="space-y-5">
+                    {editError && (
+                      <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-sm text-red-300">
+                        {editError}
                       </div>
+                    )}
 
-                      <div className="flex items-center justify-between pt-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Title
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="block w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-white outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          URL
+                        </label>
+                        <input
+                          type="url"
+                          required
+                          value={editUrl}
+                          onChange={(e) => setEditUrl(e.target.value)}
+                          className="block w-full rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm text-white outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <div className="relative">
                           <input
                             type="checkbox"
                             checked={editIsPublic}
-                            onChange={(e) => setEditIsPublic(e.target.checked)}
-                            className="rounded border-white/10 bg-white/5 text-violet-600 focus:ring-0"
+                            onChange={(e) =>
+                              setEditIsPublic(e.target.checked)
+                            }
+                            className="sr-only peer"
                           />
-                          <span className="text-xs font-medium text-slate-300">
-                            Public (visible on public profile)
-                          </span>
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingId(null)}
-                            className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/10 transition"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg hover:brightness-110 transition"
-                          >
-                            Save Changes
-                          </button>
+                          <div className="w-11 h-6 bg-white/10 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600" />
                         </div>
+                        <span className="text-sm font-medium text-slate-300">
+                          Public
+                        </span>
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          className="cursor-pointer rounded-xl bg-white/5 border border-white/10 px-5 py-2.5 text-sm font-semibold text-slate-300 hover:bg-white/10 transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="cursor-pointer rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-violet-600/20 hover:brightness-110 transition-all"
+                        >
+                          Save Changes
+                        </button>
                       </div>
-                    </form>
-                  ) : (
-                    /* VIEW MODE */
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center flex-wrap gap-2">
-                          <h3 className="font-bold text-lg text-white">
-                            {b.title}
-                          </h3>
-                          {b.is_public ? (
-                            <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-                              Public
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-medium text-slate-400 border border-slate-500/20">
-                              Private
-                            </span>
-                          )}
-                        </div>
+                    </div>
+                  </form>
+                ) : (
+                  /* VIEW MODE */
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+                    {/* Favicon circle */}
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20 border border-white/[0.06] flex items-center justify-center shrink-0">
+                      <span className="text-lg font-bold text-violet-300">
+                        {b.title.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center flex-wrap gap-2.5">
+                        <h3 className="font-semibold text-base text-white truncate">
+                          {b.title}
+                        </h3>
+                        {b.is_public ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Public
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-500 border border-slate-500/20">
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                              />
+                            </svg>
+                            Private
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
                         <a
                           href={b.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-violet-400 hover:text-violet-300 hover:underline break-all block"
+                          className="text-violet-400/80 hover:text-violet-300 transition truncate"
                         >
-                          {b.url}
+                          {getDomain(b.url)}
                         </a>
-                      </div>
-
-                      <div className="flex items-center gap-2 sm:self-center self-end">
-                        <button
-                          onClick={() => startEdit(b)}
-                          className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 transition"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(b.id)}
-                          className="rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 transition"
-                        >
-                          Delete
-                        </button>
+                        <span className="text-slate-700">·</span>
+                        <span className="text-slate-600 text-xs">
+                          {formatDate(b.created_at)}
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+                      <a
+                        href={b.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 p-2.5 text-slate-400 hover:text-white transition-all"
+                        title="Open link"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                      <button
+                        onClick={() => startEdit(b)}
+                        className="cursor-pointer rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 p-2.5 text-slate-400 hover:text-white transition-all"
+                        title="Edit"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(b.id)}
+                        className="cursor-pointer rounded-xl border border-red-500/10 bg-red-500/5 hover:bg-red-500/10 p-2.5 text-red-400/70 hover:text-red-400 transition-all"
+                        title="Delete"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

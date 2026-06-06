@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
  */
 export async function POST(request: Request) {
   try {
-    const { email, name } = await request.json();
+    const { email, name, baseUrl: bodyBaseUrl } = await request.json();
 
     if (!email) {
       return NextResponse.json(
@@ -16,6 +16,11 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const host = request.headers.get("host") || "";
+    const proto = request.headers.get("x-forwarded-proto") || "http";
+    const headerBaseUrl = host ? `${proto}://${host}` : "";
+    const baseUrl = bodyBaseUrl || headerBaseUrl;
 
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {
@@ -72,7 +77,7 @@ export async function POST(request: Request) {
                           <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td align="center">
-                                <a href="${process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : "#"}"
+                                 <a href="${baseUrl ? `${baseUrl}/dashboard` : "#"}"
                                    style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:10px;letter-spacing:0.3px;">
                                   Go to Dashboard →
                                 </a>

@@ -60,3 +60,9 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- 7. Grant Table Permissions for Supabase API Roles (anon, authenticated, service_role)
+grant usage on schema public to anon, authenticated, service_role;
+grant select, insert, update, delete on table public.profiles to authenticated, anon, service_role;
+grant select, insert, update, delete on table public.bookmarks to authenticated, anon, service_role;
+grant usage, select on all sequences in schema public to authenticated, anon, service_role;

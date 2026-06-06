@@ -64,7 +64,7 @@ export async function signup(formData: FormData) {
     fetch(`${baseUrl}/api/welcome-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name }),
+      body: JSON.stringify({ email, name, baseUrl }),
     });
   } catch {
     // Non-critical — don't block signup on email failure
