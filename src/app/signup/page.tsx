@@ -96,6 +96,26 @@ export default async function SignupPage({
               />
             </div>
 
+            {/* Handle */}
+            <div>
+              <label
+                htmlFor="handle"
+                className="block text-sm font-medium text-slate-300"
+              >
+                Username / Handle
+              </label>
+              <input
+                id="handle"
+                name="handle"
+                type="text"
+                required
+                pattern="^[a-zA-Z0-9_]{3,15}$"
+                title="Handle must be 3-15 alphanumeric characters or underscores"
+                placeholder="janedoe"
+                className="mt-1.5 block w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-slate-500 shadow-sm outline-none transition focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+
             {/* Email */}
             <div>
               <label

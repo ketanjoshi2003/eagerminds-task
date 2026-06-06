@@ -36,6 +36,7 @@ export async function signup(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const name = formData.get("name") as string;
+  const handle = (formData.get("handle") as string)?.toLowerCase()?.trim();
 
   const origin = headersList.get("origin") || headersList.get("host") || "";
   const protocol = origin.startsWith("localhost") ? "http" : "https";
@@ -47,6 +48,7 @@ export async function signup(formData: FormData) {
     options: {
       data: {
         display_name: name,
+        handle: handle,
       },
       emailRedirectTo: `${baseUrl}/auth/callback`,
     },
