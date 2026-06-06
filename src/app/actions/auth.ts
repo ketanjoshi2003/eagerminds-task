@@ -37,6 +37,10 @@ export async function signup(formData: FormData) {
   const password = formData.get("password") as string;
   const name = formData.get("name") as string;
 
+  const origin = headersList.get("origin") || headersList.get("host") || "";
+  const protocol = origin.startsWith("localhost") ? "http" : "https";
+  const baseUrl = origin.startsWith("http") ? origin : `${protocol}://${origin}`;
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -44,6 +48,7 @@ export async function signup(formData: FormData) {
       data: {
         display_name: name,
       },
+      emailRedirectTo: `${baseUrl}/auth/callback`,
     },
   });
 
@@ -52,9 +57,6 @@ export async function signup(formData: FormData) {
   }
 
   // Fire welcome email (non-blocking)
-  const origin = headersList.get("origin") || headersList.get("host") || "";
-  const protocol = origin.startsWith("localhost") ? "http" : "https";
-  const baseUrl = origin.startsWith("http") ? origin : `${protocol}://${origin}`;
 
   try {
     fetch(`${baseUrl}/api/welcome-email`, {
